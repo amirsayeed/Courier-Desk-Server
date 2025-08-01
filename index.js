@@ -28,7 +28,34 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // await client.connect();
+        const usersCollection = client.db("courierDesk_db").collection("users");
 
+
+        app.post('/users', async (req, res) => {
+            try {
+                const user = req.body;
+
+                const existing = await usersCollection.findOne({
+                    email: user.email
+                });
+
+                if (existing) {
+                    return res.status(200).json({
+                        message: 'User already exists'
+                    });
+                }
+
+                const result = await usersCollection.insertOne(user);
+                res.status(201).json({
+                    insertedId: result.insertedId
+                });
+            } catch (err) {
+                console.error('Error adding user:', err);
+                res.status(500).json({
+                    error: 'Failed to add user'
+                });
+            }
+        });
 
         // await client.db("admin").command({
         //     ping: 1
