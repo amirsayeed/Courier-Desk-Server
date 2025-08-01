@@ -60,6 +60,34 @@ async function run() {
 
 
         //parcels api
+        app.get("/myparcels", async (req, res) => {
+            try {
+                const senderEmail = req.query.email;
+
+                if (!senderEmail) {
+                    return res.status(400).send({
+                        error: "Email query parameter is required"
+                    });
+                }
+
+                const parcels = await parcelsCollection
+                    .find({
+                        senderEmail
+                    })
+                    .sort({
+                        createdAt: -1
+                    })
+                    .toArray();
+
+                res.send(parcels);
+            } catch (error) {
+                console.error("Error fetching parcels for user:", error);
+                res.status(500).send({
+                    error: "Failed to fetch parcels"
+                });
+            }
+        });
+
         app.post("/parcels", async (req, res) => {
             try {
                 const parcel = req.body;
