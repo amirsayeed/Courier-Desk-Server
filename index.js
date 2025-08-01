@@ -29,8 +29,9 @@ async function run() {
     try {
         // await client.connect();
         const usersCollection = client.db("courierDesk_db").collection("users");
+        const parcelsCollection = client.db("courierDesk_db").collection("parcels");
 
-
+        //users api
         app.post('/users', async (req, res) => {
             try {
                 const user = req.body;
@@ -56,6 +57,23 @@ async function run() {
                 });
             }
         });
+
+
+        //parcels api
+        app.post("/parcels", async (req, res) => {
+            try {
+                const parcel = req.body;
+
+                const result = await parcelsCollection.insertOne(parcel);
+                res.status(201).send(result);
+            } catch (error) {
+                console.error("Error inserting parcel:", error);
+                res.status(500).send({
+                    error: "Failed to book parcel"
+                });
+            }
+        });
+
 
         // await client.db("admin").command({
         //     ping: 1
