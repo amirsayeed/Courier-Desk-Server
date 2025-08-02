@@ -9,6 +9,9 @@ const {
 const app = express();
 const port = process.env.PORT || 5000;
 
+const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
+
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -30,6 +33,7 @@ async function run() {
         // await client.connect();
         const usersCollection = client.db("courierDesk_db").collection("users");
         const parcelsCollection = client.db("courierDesk_db").collection("parcels");
+        const paymentsCollection = client.db("courierDesk_db").collection("payments");
 
         //users api
         app.post('/users', async (req, res) => {
@@ -101,6 +105,79 @@ async function run() {
                 });
             }
         });
+
+        // payment api
+        app.post('/create-payment-intent', async (req, res) => {
+            const {
+                totalCost
+            } = req.body;
+
+            try {
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: totalCost * 100,
+                    currency: 'usd',
+                    payment_method_types: ['card'],
+                });
+
+                res.json({
+                    clientSecret: paymentIntent.client_secret
+                });
+            } catch (error) {
+                res.status(500).json({
+                    error: error.message
+                });
+            }
+        });
+
+        app.post('/payments', async (req, res) => {
+            try {
+                const {
+                    email,
+                    parcelId,
+                    totalCost,
+                    paymentMethod,
+                    transactionId,
+                    parcelData
+                } = req.body;
+
+                const newParcel = {
+                    ...parcelData,
+                    statusLogs: [{
+                        status: "payment_successful",
+                        timestamp: new Date()
+                    }],
+                    transactionId,
+                };
+
+                const parcelResult = await parcelsCollection.insertOne(newParcel);
+
+                const paymentDoc = {
+                    email,
+                    parcelId,
+                    totalCost,
+                    paymentMethod,
+                    transactionId,
+                    paidAt: new Date()
+                };
+
+                const paymentResult = await paymentsCollection.insertOne(paymentDoc);
+
+                res.status(201).send({
+                    message: "Payment successful and parcel created",
+                    insertedParcelId: parcelResult.insertedId,
+                    insertedPaymentId: paymentResult.insertedId
+                });
+
+            } catch (error) {
+                console.error("Payment/Parcel insertion error:", error);
+                res.status(500).send({
+                    message: "Failed to process prepaid parcel",
+                    error: error.message
+                });
+            }
+        });
+
+
 
 
         // await client.db("admin").command({
