@@ -48,6 +48,29 @@ async function run() {
             }
         });
 
+        app.get('/users/:email/role', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const user = await usersCollection.findOne({
+                    email
+                });
+                if (!user) {
+                    return res.status(404).send({
+                        error: 'User not found'
+                    });
+                }
+
+                res.send({
+                    role: user.role || 'customer'
+                });
+            } catch (error) {
+                console.error('Error fetching user role:', error);
+                res.status(500).send({
+                    error: 'Internal Server Error'
+                });
+            }
+        })
+
         app.post('/users', async (req, res) => {
             try {
                 const user = req.body;
