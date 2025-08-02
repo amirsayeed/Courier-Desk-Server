@@ -118,6 +118,24 @@ async function run() {
 
 
         //parcels api
+        app.get("/parcels", async (req, res) => {
+            try {
+                const parcels = await parcelsCollection
+                    .find({})
+                    .sort({
+                        createdAt: -1
+                    })
+                    .toArray();
+
+                res.send(parcels);
+            } catch (error) {
+                console.error("Error fetching parcels:", error);
+                res.status(500).send({
+                    error: "Failed to fetch parcels"
+                });
+            }
+        });
+
         app.get("/myparcels", async (req, res) => {
             try {
                 const senderEmail = req.query.email;
