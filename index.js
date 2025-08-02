@@ -3,7 +3,8 @@ const cors = require("cors");
 require("dotenv").config();
 const {
     MongoClient,
-    ServerApiVersion
+    ServerApiVersion,
+    ObjectId
 } = require('mongodb');
 
 const app = express();
@@ -96,6 +97,24 @@ async function run() {
                 });
             }
         });
+
+        app.patch('/users/:id/role', async (req, res) => {
+            const {
+                id
+            } = req.params;
+            const {
+                newRole
+            } = req.body;
+            const result = await usersCollection.updateOne({
+                _id: new ObjectId(id)
+            }, {
+                $set: {
+                    role: newRole
+                }
+            });
+            res.send(result);
+        });
+
 
 
         //parcels api
