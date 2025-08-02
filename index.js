@@ -36,6 +36,18 @@ async function run() {
         const paymentsCollection = client.db("courierDesk_db").collection("payments");
 
         //users api
+        app.get('/users', async (req, res) => {
+            try {
+                const users = await usersCollection.find().toArray();
+                res.status(200).json(users);
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                res.status(500).json({
+                    error: 'Internal Server Error'
+                });
+            }
+        });
+
         app.post('/users', async (req, res) => {
             try {
                 const user = req.body;
