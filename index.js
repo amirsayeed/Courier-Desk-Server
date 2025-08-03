@@ -236,6 +236,68 @@ async function run() {
             }
         });
 
+        app.patch("/update-parcel-status/:id", async (req, res) => {
+            const {
+                id
+            } = req.params;
+            const {
+                newStatus
+            } = req.body;
+
+            try {
+                const parcel = await parcelsCollection.findOne({
+                    _id: new ObjectId(id)
+                });
+
+                if (!parcel) {
+                    return res.status(404).send({
+                        error: "Parcel not found"
+                    });
+                }
+
+                const updateFields = {
+                    deliveryStatus: newStatus,
+                };
+
+                const statusLogEntry = {
+                    status: newStatus,
+                    timestamp: new Date(),
+                };
+
+                const updateQuery = {
+                    $set: updateFields,
+                    $push: {
+                        statusLogs: statusLogEntry,
+                    },
+                };
+
+                if (
+                    newStatus === "Delivered" &&
+                    parcel.paymentMethod === "COD" &&
+                    parcel.paymentStatus !== "paid"
+                ) {
+                    updateQuery.$set.paymentStatus = "paid";
+                    updateQuery.$push.statusLogs = {
+                        ...statusLogEntry,
+                        status: "payment_received",
+                    };
+                }
+
+                const result = await parcelsCollection.updateOne({
+                        _id: new ObjectId(id)
+                    },
+                    updateQuery
+                );
+
+                res.send(result);
+            } catch (err) {
+                console.error("Failed to update status:", err);
+                res.status(500).send({
+                    error: "Failed to update parcel status"
+                });
+            }
+        });
+
 
         app.post("/parcels", async (req, res) => {
             try {
