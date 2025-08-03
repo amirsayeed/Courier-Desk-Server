@@ -206,6 +206,37 @@ async function run() {
             }
         });
 
+        app.get("/agentassignedparcels", async (req, res) => {
+            const {
+                email
+            } = req.query;
+
+            if (!email) {
+                return res.status(400).json({
+                    error: "Email query parameter is required"
+                });
+            }
+
+            try {
+                const assignedParcels = await parcelsCollection
+                    .find({
+                        assignedAgentEmail: email
+                    })
+                    .sort({
+                        createdAt: -1
+                    })
+                    .toArray();
+
+                res.status(200).json(assignedParcels);
+            } catch (error) {
+                console.error("Error fetching assigned parcels:", error);
+                res.status(500).json({
+                    error: "Failed to fetch assigned parcels"
+                });
+            }
+        });
+
+
         app.post("/parcels", async (req, res) => {
             try {
                 const parcel = req.body;
