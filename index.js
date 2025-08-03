@@ -39,7 +39,13 @@ async function run() {
         //users api
         app.get('/users', async (req, res) => {
             try {
-                const users = await usersCollection.find().toArray();
+                const role = req.query.role;
+                const query = role ? {
+                    role
+                } : {};
+
+                const users = await usersCollection.find(query).toArray();
+
                 res.status(200).json(users);
             } catch (error) {
                 console.error('Error fetching users:', error);
@@ -135,6 +141,42 @@ async function run() {
                 });
             }
         });
+
+        app.patch("/parcels/:id/assign-agent", async (req, res) => {
+            const {
+                id
+            } = req.params;
+            const {
+                assignedAgentId,
+                assignedAgentEmail
+            } = req.body;
+
+            try {
+                const result = await parcelsCollection.updateOne({
+                    _id: new ObjectId(id)
+                }, {
+                    $set: {
+                        assignedAgentId,
+                        assignedAgentEmail,
+                        deliveryStatus: "Assigned",
+                    },
+                    $push: {
+                        statusLogs: {
+                            status: "Assigned",
+                            timestamp: new Date(),
+                        },
+                    },
+                });
+
+                res.send(result);
+            } catch (err) {
+                console.error("Failed to assign agent:", err);
+                res.status(500).send({
+                    error: "Failed to assign agent"
+                });
+            }
+        });
+
 
         app.get("/myparcels", async (req, res) => {
             try {
