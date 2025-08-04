@@ -255,6 +255,15 @@ async function run() {
                     });
                 }
 
+                if (
+                    newStatus === "Failed" &&
+                    !["Picked Up", "In Transit"].includes(parcel.deliveryStatus)
+                ) {
+                    return res.status(400).send({
+                        error: "Cannot mark parcel as Failed before it is Picked Up or In Transit"
+                    });
+                }
+
                 const updateFields = {
                     deliveryStatus: newStatus,
                 };
@@ -385,6 +394,66 @@ async function run() {
         });
 
 
+        // statistics
+        app.get('/admin/statistics', async (req, res) => {
+            try {
+                const today = new Date();
+                const startOfDay = new Date(today.setUTCHours(0, 0, 0, 0)).toISOString();
+                const endOfDay = new Date(today.setUTCHours(23, 59, 59, 999)).toISOString();
+
+                const bookingsToday = await parcelsCollection.countDocuments({
+                    createdAt: {
+                        $gte: startOfDay,
+                        $lte: endOfDay
+                    }
+                });
+
+                const failedDeliveries = await parcelsCollection.countDocuments({
+                    deliveryStatus: "Failed"
+                });
+
+                const inTransitParcels = await parcelsCollection.countDocuments({
+                    deliveryStatus: "In Transit"
+                });
+
+                const deliveredParcels = await parcelsCollection.countDocuments({
+                    deliveryStatus: "Delivered"
+                });
+
+                const [codCollectedAgg] = await parcelsCollection.aggregate([{
+                        $match: {
+                            paymentMethod: "COD",
+                            paymentStatus: "paid"
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: null,
+                            codCollected: {
+                                $sum: "$totalCost"
+                            }
+                        }
+                    }
+                ]).toArray();
+                const codCollected = codCollectedAgg?.codCollected || 0;
+
+                const totalParcels = await parcelsCollection.countDocuments();
+
+                res.send({
+                    bookingsToday,
+                    inTransitParcels,
+                    deliveredParcels,
+                    failedDeliveries,
+                    codCollected,
+                    totalParcels
+                });
+            } catch (error) {
+                console.error("Error fetching dashboard statistics:", error);
+                res.status(500).send({
+                    error: "Failed to fetch statistics"
+                });
+            }
+        })
 
 
         // await client.db("admin").command({
