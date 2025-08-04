@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const admin = require("firebase-admin");
 require("dotenv").config();
 const {
     MongoClient,
@@ -16,6 +17,13 @@ const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+
+const serviceAccount = require("./firebase-admin-service-key.json");
+
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dse9fiu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -36,8 +44,35 @@ async function run() {
         const parcelsCollection = client.db("courierDesk_db").collection("parcels");
         const paymentsCollection = client.db("courierDesk_db").collection("payments");
 
+
+        const verifyFbToken = async (req, res, next) => {
+            const authHeader = req.headers?.authorization;
+            // console.log(authHeader);
+
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return res.status(401).send({
+                    message: 'unauthorized access'
+                });
+            }
+
+            const token = authHeader.split(' ')[1];
+
+            try {
+                const decoded = await admin.auth().verifyIdToken(token);
+                //console.log('decoded token', decoded);
+                req.decoded = decoded;
+                next();
+            } catch (error) {
+                //console.log(error);
+                return res.status(403).send({
+                    message: 'forbidden access'
+                });
+            }
+        }
+
+
         //users api
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyFbToken, async (req, res) => {
             try {
                 const role = req.query.role;
                 const query = role ? {
@@ -55,7 +90,7 @@ async function run() {
             }
         });
 
-        app.get('/users/:email/role', async (req, res) => {
+        app.get('/users/:email/role', verifyFbToken, async (req, res) => {
             try {
                 const email = req.params.email;
                 const user = await usersCollection.findOne({
@@ -104,7 +139,7 @@ async function run() {
             }
         });
 
-        app.patch('/users/:id/role', async (req, res) => {
+        app.patch('/users/:id/role', verifyFbToken, async (req, res) => {
             const {
                 id
             } = req.params;
@@ -124,13 +159,14 @@ async function run() {
 
 
         //parcels api
-        app.get("/parcels", async (req, res) => {
+        app.get("/parcels", verifyFbToken, async (req, res) => {
             try {
                 const parcels = await parcelsCollection
                     .find({})
                     .sort({
                         createdAt: -1
                     })
+                    .limit(10)
                     .toArray();
 
                 res.send(parcels);
@@ -142,7 +178,7 @@ async function run() {
             }
         });
 
-        app.patch("/parcels/:id/assign-agent", async (req, res) => {
+        app.patch("/parcels/:id/assign-agent", verifyFbToken, async (req, res) => {
             const {
                 id
             } = req.params;
@@ -178,7 +214,7 @@ async function run() {
         });
 
 
-        app.get("/myparcels", async (req, res) => {
+        app.get("/myparcels", verifyFbToken, async (req, res) => {
             try {
                 const senderEmail = req.query.email;
 
@@ -206,7 +242,7 @@ async function run() {
             }
         });
 
-        app.get("/agentassignedparcels", async (req, res) => {
+        app.get("/agentassignedparcels", verifyFbToken, async (req, res) => {
             const {
                 email
             } = req.query;
@@ -236,7 +272,7 @@ async function run() {
             }
         });
 
-        app.patch("/update-parcel-status/:id", async (req, res) => {
+        app.patch("/update-parcel-status/:id", verifyFbToken, async (req, res) => {
             const {
                 id
             } = req.params;
@@ -308,7 +344,7 @@ async function run() {
         });
 
 
-        app.post("/parcels", async (req, res) => {
+        app.post("/parcels", verifyFbToken, async (req, res) => {
             try {
                 const parcel = req.body;
 
@@ -323,7 +359,7 @@ async function run() {
         });
 
         // payment api
-        app.post('/create-payment-intent', async (req, res) => {
+        app.post('/create-payment-intent', verifyFbToken, async (req, res) => {
             const {
                 totalCost
             } = req.body;
@@ -345,7 +381,7 @@ async function run() {
             }
         });
 
-        app.post('/payments', async (req, res) => {
+        app.post('/payments', verifyFbToken, async (req, res) => {
             try {
                 const {
                     email,
@@ -395,7 +431,7 @@ async function run() {
 
 
         // statistics
-        app.get('/admin/statistics', async (req, res) => {
+        app.get('/admin/statistics', verifyFbToken, async (req, res) => {
             try {
                 const today = new Date();
                 const startOfDay = new Date(today.setUTCHours(0, 0, 0, 0)).toISOString();
