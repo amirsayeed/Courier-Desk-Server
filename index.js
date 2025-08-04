@@ -15,11 +15,18 @@ const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
 
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:5173',
+        'https://courier-desk.netlify.app'
+    ],
+    credentials: true
+}));
 app.use(express.json());
 
 
-const serviceAccount = require("./firebase-admin-service-key.json");
+const decodedKey = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString('utf8');
+const serviceAccount = JSON.parse(decodedKey);
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
