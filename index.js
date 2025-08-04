@@ -70,9 +70,41 @@ async function run() {
             }
         }
 
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = {
+                email
+            };
+
+            const user = await usersCollection.findOne(query);
+
+            if (!user || user.role !== 'admin') {
+                return res.status(403).send({
+                    message: 'forbidden access'
+                })
+            }
+            next();
+        }
+
+        const verifyAgent = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = {
+                email
+            };
+
+            const user = await usersCollection.findOne(query);
+
+            if (!user || user.role !== 'delivery_agent') {
+                return res.status(403).send({
+                    message: 'forbidden access'
+                })
+            }
+            next();
+        }
+
 
         //users api
-        app.get('/users', verifyFbToken, async (req, res) => {
+        app.get('/users', verifyFbToken, verifyAdmin, async (req, res) => {
             try {
                 const role = req.query.role;
                 const query = role ? {
@@ -139,7 +171,7 @@ async function run() {
             }
         });
 
-        app.patch('/users/:id/role', verifyFbToken, async (req, res) => {
+        app.patch('/users/:id/role', verifyFbToken, verifyAdmin, async (req, res) => {
             const {
                 id
             } = req.params;
@@ -159,7 +191,7 @@ async function run() {
 
 
         //parcels api
-        app.get("/parcels", verifyFbToken, async (req, res) => {
+        app.get("/parcels", verifyFbToken, verifyAdmin, async (req, res) => {
             try {
                 const parcels = await parcelsCollection
                     .find({})
@@ -178,7 +210,7 @@ async function run() {
             }
         });
 
-        app.patch("/parcels/:id/assign-agent", verifyFbToken, async (req, res) => {
+        app.patch("/parcels/:id/assign-agent", verifyFbToken, verifyAdmin, async (req, res) => {
             const {
                 id
             } = req.params;
@@ -242,7 +274,7 @@ async function run() {
             }
         });
 
-        app.get("/agentassignedparcels", verifyFbToken, async (req, res) => {
+        app.get("/agentassignedparcels", verifyFbToken, verifyAgent, async (req, res) => {
             const {
                 email
             } = req.query;
@@ -272,7 +304,7 @@ async function run() {
             }
         });
 
-        app.patch("/update-parcel-status/:id", verifyFbToken, async (req, res) => {
+        app.patch("/update-parcel-status/:id", verifyFbToken, verifyAgent, async (req, res) => {
             const {
                 id
             } = req.params;
@@ -431,7 +463,7 @@ async function run() {
 
 
         // statistics
-        app.get('/admin/statistics', verifyFbToken, async (req, res) => {
+        app.get('/admin/statistics', verifyFbToken, verifyAdmin, async (req, res) => {
             try {
                 const today = new Date();
                 const startOfDay = new Date(today.setUTCHours(0, 0, 0, 0)).toISOString();
